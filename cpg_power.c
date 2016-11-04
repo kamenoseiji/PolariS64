@@ -27,7 +27,7 @@ int	cpg_power(
 
 	cpgsch(0.5);
 	for(timeIndex=0; timeIndex<POWER_TIME_NUM; timeIndex++){
-		plotX[timeIndex] = (float)(-timeIndex) / PARTNUM;
+		plotX[timeIndex] = (float)(-timeIndex) / 10.0;
 	};
 	nxwin   = (int)sqrt((double)param_ptr->num_st);
 	nywin   = (param_ptr->num_st + nxwin - 1)/nxwin;
@@ -62,13 +62,13 @@ int	cpg_power(
 
 		//-------- IF number
 		x_text = xmin*0.2 + xmax*0.8; y_text = ymin*0.1 + ymax*0.9;
-		sprintf(text, "IF = %d\0", st_index); cpgsci(3);	cpgtext( x_text, y_text, text );
+		sprintf(text, "IF = %d", st_index); cpgsci(3);	cpgtext( x_text, y_text, text );
 		y_text = ymin*0.15 + ymax*0.85;
-		sprintf(text, "%7.3f [dB]\0", plotY[0]); cpgsci(1);	cpgtext( x_text, y_text, text );
+		sprintf(text, "%7.3f [dB]", plotY[0]); cpgsci(1);	cpgtext( x_text, y_text, text );
 	}
 	//-------- UTC
 	x_text = xmin*0.3 + xmax*0.7; y_text = 0.05*ymin + 0.95* ymax;
-	sprintf(text, "%04d %03d %02d:%02d:%02d\0", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec); cpgsci(1);	cpgtext( x_text, y_text, text );
+	sprintf(text, "%04d %03d %02d:%02d:%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec); cpgsci(1);	cpgtext( x_text, y_text, text );
 
 	cpgebuf();
 

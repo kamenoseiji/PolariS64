@@ -67,7 +67,7 @@ int main(
 	fclose(shm_vdifd_fptr);
 
     //-------- SHARED cross-power-spectra data area --------
-	printf("Trying to allocate %d bytes for Shared Xspec data [KEY = %d]!\n", XSPEC_SIZE, XSPEC_KEY);
+	printf("Trying to allocate %lu bytes for Shared Xspec data [KEY = %d]!\n", XSPEC_SIZE, XSPEC_KEY);
 	if(shm_init_create(
 		XSPEC_KEY,						// ACCESS KEY
 		XSPEC_SIZE,						// Data Area Size

@@ -2,11 +2,12 @@
 //
 //	Author : Seiji Kameno
 //	Created: 2014/08/29
+//	Modified: 2016/11/3 for ADS3000+
 //
 #include "shm_VDIF.inc"
 #include <math.h>
-#define MAX_LEVEL	16     // Maximum number of digitized levels
-#define MAX_LOOP    10      // Maximum number of iterations
+#define MAX_LEVEL	4     // Maximum number of digitized levels
+#define MAX_LOOP    4      // Maximum number of iterations
 #define MAX(a,b)    a>b?a:b // Larger Value
 
 int	bitDist1st2bit(int, unsigned char *, unsigned int *);
@@ -27,6 +28,7 @@ int main(
 	int		page_index;					// Index for page in buffer (2 pages per cycle)
 	int		seg_index;					// Index for Segment
 	int		IF_index;
+    int     PageSize;
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
 	unsigned char	*vdifhead_ptr;		// Pointer to the VDIF header
@@ -35,7 +37,7 @@ int main(
 	FILE	*file_ptr[6];				// File Pointer to write
 	FILE	*power_ptr[4];				// Power File Pointer to write
 	char	fname_pre[16];
-	unsigned int		bitDist[64];	// 16 IF x 4 level
+	unsigned int		bitStat[64];	// 16 IF x 4 level
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
 
 	int				modeSW = 0;
@@ -61,13 +63,14 @@ int main(
  		case 16 :	modeSW = 4; break;
  	}
 //------------------------------------------ VSI Header and Data
+    PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
  	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Loop for half-sec period
-		memset(bitDist, 0, sizeof(bitDist));
+		memset(bitStat, 0, sizeof(bitStat));
 
 		//-------- Wait for the first half in the S-part
 		sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
@@ -80,10 +83,12 @@ int main(
 		// printf("Ready to process Part=%d Cycle=%d Page=%d\n", param_ptr->part_index, cycle_index, page_index);
 
 		//-------- BitDist
-		(*bitCount[modeSW])(HALFBUF/4, &vdifdata_ptr[HALFBUF* page_index], bitDist); 
+		// (*bitCount[modeSW])(HALFBUF/4, &vdifdata_ptr[HALFBUF* page_index], bitStat); 
 		// printf("Power [dB] = ");
 		for(IF_index=0; IF_index<param_ptr->num_st; IF_index ++){
-		 	gaussBit(4, &bitDist[4* IF_index], param, param_err );
+            // bitDist1st2bit(PageSize, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
+            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
+		 	gaussBit(4, &bitStat[4* IF_index], param, param_err );
 		 	param_ptr->power[IF_index] = 1.0 / (param[0]* param[0]);
 		 	// printf("%5.2f ", 10.0* log10(param_ptr->power[IF_index]));
 		}
@@ -259,28 +264,28 @@ int	VDIFutc(
 int bitDist1st2bit(
 	int				nbytes,		// Number of bytes to examine
 	unsigned char	*data_ptr,	// 2-bit quantized data stream (1 IF)
-	unsigned int	*bitDist)	// Bit distribution counter	(1 IF x 4 levels)
+	unsigned int	*bitStat)	// Bit distribution counter	(1 IF x 4 levels)
 {
 	int	bitmask = 0x03;			// 2-bit mask
 	int	nlevel  = 4;			// Number of levels
 	int index;					// Counter
 	for(index=0; index<nbytes; index+=4){			// 4 bytes per sample
-		bitDist[((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+1]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+2]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+3]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+1]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+2]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+3]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-0 bitdist
 	}
 	return(nbytes);
 }
@@ -289,28 +294,28 @@ int bitDist1st2bit(
 int bitDist2st2bit(
 	int				nbytes,		// Number of bytes to examine
 	unsigned char	*data_ptr,	// 2-bit quantized data stream (2 IF)
-	unsigned int	*bitDist)	// Bit distribution counter	(2 IF x 4 levels)
+	unsigned int	*bitStat)	// Bit distribution counter	(2 IF x 4 levels)
 {
 	int	bitmask = 0x03;			// 2-bit mask
 	int	nlevel  = 4;			// Number of levels
 	int index;					// Counter
 	for(index=0; index<nbytes; index+=4){			// 4 bytes per sample
-		bitDist[         ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[         ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[         ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[         ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-1 bitdist
 	}
 	return(nbytes);
 }
@@ -319,28 +324,28 @@ int bitDist2st2bit(
 int bitDist4st2bit(
 	int				nbytes,		// Number of bytes to examine
 	unsigned char	*data_ptr,	// 2-bit quantized data stream (4 IF)
-	unsigned int	*bitDist)	// Bit distribution counter	(4 IF x 4 levels)
+	unsigned int	*bitStat)	// Bit distribution counter	(4 IF x 4 levels)
 {
 	int	bitmask = 0x03;			// 2-bit mask
 	int	nlevel  = 4;			// Number of levels
 	int index;					// Counter
 	for(index=0; index<nbytes; index+=4){			// 4 bytes per sample
-		bitDist[            ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[            ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[            ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[            ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[   nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[   nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[   nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[   nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[            ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[            ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[            ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[            ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[   nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[   nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[   nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[   nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-3 bitdist
 	}
 	return(nbytes);
 }
@@ -349,28 +354,28 @@ int bitDist4st2bit(
 int bitDist8st2bit(
 	int				nbytes,		// Number of bytes to examine
 	unsigned char	*data_ptr,	// 2-bit quantized data stream (8 IF)
-	unsigned int	*bitDist)	// Bit distribution counter	(8 IF x 4 levels)
+	unsigned int	*bitStat)	// Bit distribution counter	(8 IF x 4 levels)
 {
 	int	bitmask = 0x03;			// 2-bit mask
 	int	nlevel  = 4;			// Number of levels
 	int index;					// Counter
 	for(index=0; index<nbytes; index+=4){			// 4 bytes per sample
-		bitDist[            ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[            ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[   nlevel + ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[   nlevel + ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[2* nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[3* nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[4* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-4 bitdist
-		bitDist[4* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-4 bitdist
-		bitDist[5* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-5 bitdist
-		bitDist[5* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-5 bitdist
-		bitDist[6* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-6 bitdist
-		bitDist[6* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-6 bitdist
-		bitDist[7* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-7 bitdist
-		bitDist[7* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-7 bitdist
+		bitStat[            ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[            ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[   nlevel + ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[   nlevel + ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[2* nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[3* nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[4* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-4 bitdist
+		bitStat[4* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-4 bitdist
+		bitStat[5* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-5 bitdist
+		bitStat[5* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-5 bitdist
+		bitStat[6* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-6 bitdist
+		bitStat[6* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-6 bitdist
+		bitStat[7* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-7 bitdist
+		bitStat[7* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-7 bitdist
 	}
 	return(nbytes);
 }
@@ -379,29 +384,29 @@ int bitDist8st2bit(
 int bitDist16st2bit(
 	int				nbytes,		// Number of bytes to examine
 	unsigned char	*data_ptr,	// 2-bit quantized data stream (16 IF)
-	unsigned int	*bitDist)	// Bit distribution counter	(16 IF x 4 levels)
+	unsigned int	*bitStat)	// Bit distribution counter	(16 IF x 4 levels)
 {
 	int	bitmask = 0x03;			// 2-bit mask
 	int	nlevel  = 4;			// Number of levels
 	int index;					// Counter
 
 	for(index=0; index<nbytes; index+=4){			// 4 bytes per sample
-		bitDist[             ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
-		bitDist[    nlevel + ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-1 bitdist
-		bitDist[ 2* nlevel + ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-2 bitdist
-		bitDist[ 3* nlevel + ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-3 bitdist
-		bitDist[ 4* nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-4 bitdist
-		bitDist[ 5* nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-5 bitdist
-		bitDist[ 6* nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-6 bitdist
-		bitDist[ 7* nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-7 bitdist
-		bitDist[ 8* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-8 bitdist
-		bitDist[ 9* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-9 bitdist
-		bitDist[10* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-10 bitdist
-		bitDist[11* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-11 bitdist
-		bitDist[12* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-12 bitdist
-		bitDist[13* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-13 bitdist
-		bitDist[14* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-14 bitdist
-		bitDist[15* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-15 bitdist
+		bitStat[             ((data_ptr[index  ] >> 6) & bitmask)] ++;	// IF-0 bitdist
+		bitStat[    nlevel + ((data_ptr[index  ] >> 4) & bitmask)] ++;	// IF-1 bitdist
+		bitStat[ 2* nlevel + ((data_ptr[index  ] >> 2) & bitmask)] ++;	// IF-2 bitdist
+		bitStat[ 3* nlevel + ((data_ptr[index  ]     ) & bitmask)] ++;	// IF-3 bitdist
+		bitStat[ 4* nlevel + ((data_ptr[index+1] >> 6) & bitmask)] ++;	// IF-4 bitdist
+		bitStat[ 5* nlevel + ((data_ptr[index+1] >> 4) & bitmask)] ++;	// IF-5 bitdist
+		bitStat[ 6* nlevel + ((data_ptr[index+1] >> 2) & bitmask)] ++;	// IF-6 bitdist
+		bitStat[ 7* nlevel + ((data_ptr[index+1]     ) & bitmask)] ++;	// IF-7 bitdist
+		bitStat[ 8* nlevel + ((data_ptr[index+2] >> 6) & bitmask)] ++;	// IF-8 bitdist
+		bitStat[ 9* nlevel + ((data_ptr[index+2] >> 4) & bitmask)] ++;	// IF-9 bitdist
+		bitStat[10* nlevel + ((data_ptr[index+2] >> 2) & bitmask)] ++;	// IF-10 bitdist
+		bitStat[11* nlevel + ((data_ptr[index+2]     ) & bitmask)] ++;	// IF-11 bitdist
+		bitStat[12* nlevel + ((data_ptr[index+3] >> 6) & bitmask)] ++;	// IF-12 bitdist
+		bitStat[13* nlevel + ((data_ptr[index+3] >> 4) & bitmask)] ++;	// IF-13 bitdist
+		bitStat[14* nlevel + ((data_ptr[index+3] >> 2) & bitmask)] ++;	// IF-14 bitdist
+		bitStat[15* nlevel + ((data_ptr[index+3]     ) & bitmask)] ++;	// IF-15 bitdist
 	}
 	return(nbytes);
 }

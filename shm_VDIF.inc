@@ -37,11 +37,13 @@ union VDIF32byte{
 #define SHM_FMT         "SHM_KEY(HEX)    SHM_ID     SHMSIZE(bytes)\n         %X        %d                %d"
 //-------- Shared Memory Size
 // VDIF Buffer Memory Map
-//  |<--------------------- 1 sec --------------------------------->|
-//  | part0 | part1 | part2 | part3 | part4 | part5 | part6 | part7 | 
-//  | page0 | page1 | page0 | page1 | page0 | page1 | page0 | page1 |
-//  |<--- 32 MB --->|
-//  | <16MB>|
+//  |      <---- 0.2 sec ->|
+//  | st0 || page0 | page2 |
+//  |     || part0 | part1 |
+//  | st1 || page1 | page2 |
+//  |     || part0 | part1 |
+//
+//  10 parts / sec / stream
 //
 #define SEM_NUM			16			// Number of Semaphores
 #define	VDIF_SIZE		1312		// 1312 bytes = Header (32 bytes) + Data (1280 bytes)
@@ -49,18 +51,14 @@ union VDIF32byte{
 #define	VDIFDATA_SIZE	1280		// VDIF Header size
 //#define	MAX_SAMPLE_BUF	33554432	// 32 MB (1/4 sec for 1 Gbps)
 //#define	HALFBUF			16777216	// 16 MB per 1/8 sec
-#define	MAX_SAMPLE_BUF	256000000	// 256 MB (1/4 sec for 8192 Mbps)
-#define	HALFBUF			128000000	// 128 MB per 1/8 sec
-#define FramePerSec		   800000	// 1024 MB/s / (1280 bytes/frame) = 800000 frame per sec
-#define FramePerBUF 	    25000	// 100000 frame/sec / 4 Buf/sec =  25000 frame/buf
-#define FramePerPart	   12500	// 25000 frame/page / 2 part/page=  12500 frame/part
-#define PARTNUM			8			// Number of Parts in 1 sec
+#define	MAX_SAMPLE_BUF	204800000	// 1/5 sec for 8192 Mbps
+#define PAGENUM			       10   // Number of Pages in 1 sec per stream
 #define	NST			(param_ptr->num_st)		// Numver of streams
 #define	NFFT		(param_ptr->segLen)		// FFT points
 #define	NFFT2		(param_ptr->num_ch)		// Half of FFT points
 #define	NFFTC		(param_ptr->num_ch + 1)	// NFFT/2+1 = Number of spectral points
-#define	NsegSec		(param_ptr->segNum)		// # of segments per sec
-#define	NsegPart	(param_ptr->segNum/ PARTNUM)	// # of segments per part
+#define	NsegSec		(param_ptr->segRate)	// # of segments per sec
+#define	NsegPage	(param_ptr->segPage)	// # of segments per page
 #define	MAX_NIF			16			// Maximum Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	SEGDATA_SIZE	MAX_NIF* param_ptr->segLen* param_ptr->segNum* sizeof(float)
@@ -76,18 +74,18 @@ struct	SHM_PARAM{
 	int		shrd_vdifdata_id;	// Shared Memory ID
 	int		shrd_xspec_id;		// Shared Memory ID
 	int		sem_data_id;		// Semaphore
-	int		part_index;			// Part in 1-sec data
-	int		buf_index;			// Buffered page index
+	int		part_index;			// Index for part (0 or 1) of sampled data
+	int		dummy;			    // Dummy
 	int		dummy2;				// filler, reserved
 
 	//-------- Sampling Modes
 	int		sd_len;				// Size of 1-sec sampling data [bytes]
 	int		num_st;				// Total number of streams (IFs)
 	int		qbit;				// Quantization bits (1, 2, 4, or 8)
-	int		BW;					// Antialias Filter BW (MHz)
 	int		fsample;			// Sampling Frequency [Hz]
 	int		segLen;				// 1-segment length
-	int		segNum;				// Number of segments in 1 sec
+	int		segRate;			// Number of segments in 1 sec
+	int		segPage;			// Number of segments in 1 sec
 	int		num_ch;				// Number of spectral channels
 
 	//-------- Process ID

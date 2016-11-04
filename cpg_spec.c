@@ -29,7 +29,7 @@ int	cpg_spec(
 	// printf("NUMIF=%d %e %e %e %e\n", param_ptr->num_st, xspec_ptr[32768], xspec_ptr[32769], xspec_ptr[32770], xspec_ptr[32771]);
 
 	cpgsch(0.5);
-	freq_incr = (double)(param_ptr->fsample) / 2.0e6 / NFFT2;
+	// freq_incr = (double)(param_ptr->fsample) / 2.0e6 / NFFT2;
 	nxwin   = (int)sqrt((double)param_ptr->num_st);
 	nywin   = (param_ptr->num_st + nxwin - 1)/nxwin;
 	xwin_incr = 0.9 / (float)nxwin;
@@ -41,7 +41,7 @@ int	cpg_spec(
 		ny_index	= st_index / nxwin;
 
 		//-------- PLOT WINDOW --------
-		xmin = - 0.5*freq_incr;	xmax = xmin + ((double)NFFT2 - 0.5) * freq_incr;
+		xmin = -freq_ptr[1];	xmax = freq_ptr[NFFT2-1];
 		// ymin = 0.0;			ymax = 3.0;		// Linear
 		ymin = -15.0;			ymax = 5.0;		// dB unit
 		peakVal = -1.0e6;		// Reset Peak Value

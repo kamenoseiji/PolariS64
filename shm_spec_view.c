@@ -38,12 +38,12 @@ int main(
 	sleep(1);									// Timing adjustment for PGPLOT device
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, argv[1], 1, 1);
-	sprintf(xlabel, "Frequency [MHz]"); cpg_setup(xlabel);
 	freq_ptr = (float *)malloc(NFFT2* sizeof(float));
-	freq_incr = (double)(param_ptr->fsample) / 2.0e6 / NFFT2;
+	freq_incr = (double)(param_ptr->fsample) * 1.0e-6 / NFFT;
 	for(index=0; index<NFFT2; index ++){
-		freq_ptr[index] = (float)((index - 0.5)* freq_incr);
+		freq_ptr[index] = (float)(freq_incr* (index - 0.5));
 	}
+	sprintf(xlabel, "Frequency [MHz]"); cpg_setup(xlabel);
 
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }

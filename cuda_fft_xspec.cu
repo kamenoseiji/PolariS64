@@ -20,9 +20,10 @@ main(
 {
 	int		shrd_param_id;				// Shared Memory ID
 	int		index;						// General Index
-	int		page_index;					// Index for page in buffer (2 pages per cycle)
+	int		threadID;					// Index for thread (= IF stream)
 	int		seg_index;					// Index for Segment
 	int		offset[16384];				// Segment offset position
+    int     PageSize;                   // Page size [bytes]
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
 	unsigned char	*vdifdata_ptr;		// Pointer to shared VDIF data
@@ -52,6 +53,7 @@ main(
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	vdifdata_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifdata_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
+    PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
 	switch( param_ptr->num_st ){
  		case  1 :	modeSW = 0; break;
  		case  2 :	modeSW = 1; break;
@@ -60,20 +62,20 @@ main(
  		case 16 :	modeSW = 4; break;
  	}
 //------------------------------------------ Prepare for CuFFT
-	cudaMalloc( (void **)&cuvdifdata_ptr, MAX_SAMPLE_BUF);
-	cudaMalloc( (void **)&cuRealData, NST* NsegPart* NFFT * sizeof(cufftReal) );
-	cudaMalloc( (void **)&cuSpecData, NST* NsegPart* NFFTC* sizeof(cufftComplex) );
-	cudaMalloc( (void **)&cuPowerSpec, NST* NFFT2* sizeof(float));
+	cudaMalloc( (void **)&cuvdifdata_ptr, PageSize);                                    // for Sampled Data
+	cudaMalloc( (void **)&cuRealData, NsegPage* NFFT* sizeof(cufftReal) );              // For FFT segments in a page
+	cudaMalloc( (void **)&cuSpecData, NST* NsegPage* NFFTC* sizeof(cufftComplex) );     // For FFTed spectra
+	cudaMalloc( (void **)&cuPowerSpec,NST* NFFT2* sizeof(float));                       // For autcorr spectra
 	// cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
 
 	if(cudaGetLastError() != cudaSuccess){
 	 	fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
- 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, NST* NsegPart ) != CUFFT_SUCCESS){
+ 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, NST* NsegPage ) != CUFFT_SUCCESS){
  		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1); }
 //------------------------------------------ Parameters for S-part format
  	segment_offset(param_ptr, offset);
-	// for(index=0; index< 2*NsegPart; index++){	printf("Offset[%d] = %d\n", index, offset[index]);}
+	for(seg_index=0; seg_index< NsegPage; seg_index++){	printf("Offset[%d] = %d\n", seg_index, offset[seg_index]);}
 //------------------------------------------ K5 Header and Data
 	cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
  	param_ptr->current_rec = 0;
@@ -82,66 +84,62 @@ main(
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Initial setup for cycles
-		if( param_ptr->buf_index == 0){
-			cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
-		}
+		// if( param_ptr->buf_index == 0){
+		cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
+		// }
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
 			fileRecOpen(param_ptr, fname_pre, Pfile_ptr, Afile_ptr);
 		}
-
-		//-------- Wait for the first half in the S-part
+		//-------- Wait for S-part memory 
 		sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
-		usleep(8);	// Wait 0.01 msec
-		// StartTimer();
-		page_index = param_ptr->buf_index % 2;			// 2 pages per cycle
-		printf("... Ready to process Part=%d Page=%d\n", param_ptr->buf_index, page_index);
+		// usleep(8);	// Wait 0.01 msec
+		StartTimer();
+        for(threadID=0; threadID < NST; threadID++){
+		    printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
+		    //-------- SHM -> GPU memory transfer
+		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID + 2* param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
+		    //-------- Segment Format
+		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
+		    for(index=0; index < NsegPage; index ++){
+			   (*segform[0])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[index]], &cuRealData[index* NFFT], NFFT);
+		    }
+			// (*segform[0])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[0]], &cuRealData[0], NsegPage* NFFT);
 
-		//-------- SHM -> GPU memory transfer
-		cudaMemcpy( &cuvdifdata_ptr[HALFBUF* page_index], &vdifdata_ptr[HALFBUF* page_index], HALFBUF, cudaMemcpyHostToDevice);
-		//-------- Segment Format
-		Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
-		for(index=0; index < NsegPart; index ++){
-			seg_index = page_index* NsegPart + index;
-			(*segform[modeSW])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[seg_index]], &cuRealData[index* NST* NFFT], NFFT);
-		}
+		    //-------- FFT Real -> Complex spectrum
+		    cudaThreadSynchronize();
+		    cufftExecR2C(cufft_plan, cuRealData, cuSpecData);		// FFT Time -> Freq
+		    cudaThreadSynchronize();
 
-		//-------- FFT Real -> Complex spectrum
-		cudaThreadSynchronize();
-		cufftExecR2C(cufft_plan, cuRealData, cuSpecData);		// FFT Time -> Freq
-		cudaThreadSynchronize();
-
-		//---- Auto Corr
-		Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
-		for(seg_index=0; seg_index<NsegPart; seg_index++){
-			 for(index=0; index<NST; index++){
-				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* NST + index)* NFFTC], &cuPowerSpec[index* NFFT2],  NFFT2);
+		    //---- Auto Corr
+		    Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
+		    for(seg_index=0; seg_index<NsegPage; seg_index++){
+				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
 		}
+		printf("%lf [msec]\n", GetTimer());
 
 		//-------- Dump cross spectra to shared memory
-		if( param_ptr->buf_index == PARTNUM - 1){
-			cudaMemcpy(xspec_ptr, cuPowerSpec, NST* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
-			sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
-			for(index=0; index<param_ptr->num_st; index++){
-				if(Afile_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, Afile_ptr[index]);}   // Save Power Spectra
-				if(Pfile_ptr[index] != NULL){fwrite(&(param_ptr->power[index]), sizeof(float), 1, Pfile_ptr[index]);}   // Save Power
-			}
-
-			//-------- Refresh output data file
-			if(param_ptr->current_rec == MAX_FILE_REC - 1){
-				for(index=0; index<param_ptr->num_st; index++){
-					if( Afile_ptr[index] != NULL){   fclose(Afile_ptr[index]);}
-					if( Pfile_ptr[index] != NULL){   fclose(Pfile_ptr[index]);}
-				}
-				param_ptr->current_rec = 0;
-			} else { param_ptr->current_rec ++;}
+		// if( param_ptr->buf_index == PARTNUM - 1){
+		cudaMemcpy(xspec_ptr, cuPowerSpec, NST* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
+		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
+		for(index=0; index<NST; index++){
+		    if(Afile_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, Afile_ptr[index]);}   // Save Power Spectra
+			if(Pfile_ptr[index] != NULL){fwrite(&(param_ptr->power[index]), sizeof(float), 1, Pfile_ptr[index]);}   // Save Power
 		}
+
+	    //-------- Refresh output data file
+		if(param_ptr->current_rec == MAX_FILE_REC - 1){
+			for(index=0; index<param_ptr->num_st; index++){
+				if( Afile_ptr[index] != NULL){   fclose(Afile_ptr[index]);}
+				if( Pfile_ptr[index] != NULL){   fclose(Pfile_ptr[index]);}
+			}
+			param_ptr->current_rec = 0;
+		} else { param_ptr->current_rec ++;}
 		param_ptr->current_rec ++;
-		// printf("%lf [msec]\n", GetTimer());
 	}	// End of part loop
 /*
 -------------------------------------------- RELEASE the SHM
@@ -163,17 +161,11 @@ int	segment_offset(
 {
 	int			seg_index;		// Index for segments
 	long long	SegLenByte;		// Length of a segment in Bytes
-
-	//-------- First Half
-	SegLenByte = param_ptr->segLen* param_ptr->qbit* param_ptr->num_st / 8;		// Segment Length in Byte
-	for(seg_index = 0; seg_index < NsegPart; seg_index ++){
-
-		offset_ptr[seg_index]  = (int)(((long long)seg_index* (HALFBUF - SegLenByte))/ ((long long)NsegPart - 1));
-		offset_ptr[seg_index]  -= (offset_ptr[seg_index] % 4);		// 4-byte alignment
-
-		offset_ptr[seg_index + NsegPart]= offset_ptr[seg_index] + HALFBUF;
-	}
-	return(NsegSec);
+	SegLenByte = param_ptr->segLen / 8 * param_ptr->qbit;		// Segment Length in Byte
+	for(seg_index = 0; seg_index < param_ptr->segPage; seg_index ++){
+		offset_ptr[seg_index]= SegLenByte* seg_index;
+    }
+	return(param_ptr->segPage);
 }
 
 //-------- Open Files to Record Data

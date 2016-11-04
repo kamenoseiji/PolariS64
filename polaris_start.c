@@ -80,11 +80,13 @@ int main(
 	param_ptr->segLen    = num_ch* 2;	// FFT segment length
 	param_ptr->num_st    = num_st;		// Number of streams
 	param_ptr->num_ch    = num_ch;		// Number of spectral channels
-	param_ptr->fsample   = pow2round(2* bandWidth)* 1000000;	// Sampling freq.
-	param_ptr->segNum    = pow2round((unsigned int)(param_ptr->fsample / param_ptr->num_ch));// Number of segments in 1 sec
+	param_ptr->fsample   = pow2round(2* bandWidth)* 1000000;	    // Sampling freq.
+	param_ptr->segRate   = param_ptr->fsample / param_ptr->segLen;  // Number of segments in 1 sec
+	param_ptr->segPage   = param_ptr->segRate / PAGENUM;            // Number of segments in a page (0.1 sec)
 	printf("AREC FLAG = %X \n", param_ptr->AC_REC);
-	printf("%d Segments per sec\n", param_ptr->segNum);
-	printf("%d Segments per part\n", NsegPart);
+	printf("%d Megabit  per sec\n", param_ptr->num_st* (param_ptr->fsample/1000000) * param_ptr->qbit);
+	printf("%d Segments per sec\n", param_ptr->segRate);
+	printf("%d Segments per page\n", param_ptr->segPage);
 //------------------------------------------ Start shm_alloc()
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], SHM_ALLOC);
@@ -124,10 +126,10 @@ int main(
 			}
 		}
 	}
-    #ifdef HIDOI
 //------------------------------------------ Start Spectrum Viewer
 	if( param_ptr->validity & PGPLOT ){
 		strcpy(cmd[1], pgdev);
+        #ifdef HIDOI
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], POWER_VIEW);
 			sprintf(path_str, "%s%s", path_dir, POWER_VIEW);
@@ -136,6 +138,7 @@ int main(
 				perror("Can't Create Chiled Proces!!\n"); return(-1);
 			}
 		}
+        #endif
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], SPEC_VIEW);
 			sprintf(path_str, "%s%s", path_dir, SPEC_VIEW);
@@ -155,6 +158,7 @@ int main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
+    #ifdef HIDOI
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], BITDIST);
 		sprintf(path_str, "%s%s", path_dir, BITDIST);

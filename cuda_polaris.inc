@@ -158,26 +158,14 @@ __global__ void segform_1st_2bit(
 	float   *segdata,					// Output Segment Data
 	int		length)						// Length to copy
 {
-	int	hex_length = length/16;
+	int	hex_length = length >> 2;
 	float	bias = 1.5;
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
 	if( (ix >= 0) && (ix < hex_length) ){
-		segdata[16* ix     ] = (float)(((vdifdata_in[4*ix   ] >> 7) & 0x01) | ((vdifdata_in[4*ix   ] >> 5) & 0x02) ) - bias ;
-		segdata[16* ix +  1] = (float)(((vdifdata_in[4*ix   ] >> 5) & 0x01) | ((vdifdata_in[4*ix   ] >> 3) & 0x02) ) - bias ;
-		segdata[16* ix +  2] = (float)(((vdifdata_in[4*ix   ] >> 3) & 0x01) | ((vdifdata_in[4*ix   ] >> 1) & 0x02) ) - bias ;
-		segdata[16* ix +  3] = (float)(((vdifdata_in[4*ix   ] >> 1) & 0x01) | ((vdifdata_in[4*ix   ] << 1) & 0x02) ) - bias ;
-		segdata[16* ix +  4] = (float)(((vdifdata_in[4*ix +1] >> 7) & 0x01) | ((vdifdata_in[4*ix +1] >> 5) & 0x02) ) - bias ;
-		segdata[16* ix +  5] = (float)(((vdifdata_in[4*ix +1] >> 5) & 0x01) | ((vdifdata_in[4*ix +1] >> 3) & 0x02) ) - bias ;
-		segdata[16* ix +  6] = (float)(((vdifdata_in[4*ix +1] >> 3) & 0x01) | ((vdifdata_in[4*ix +1] >> 1) & 0x02) ) - bias ;
-		segdata[16* ix +  7] = (float)(((vdifdata_in[4*ix +1] >> 1) & 0x01) | ((vdifdata_in[4*ix +1] << 1) & 0x02) ) - bias ;
-		segdata[16* ix +  8] = (float)(((vdifdata_in[4*ix +2] >> 7) & 0x01) | ((vdifdata_in[4*ix +2] >> 5) & 0x02) ) - bias ;
-		segdata[16* ix +  9] = (float)(((vdifdata_in[4*ix +2] >> 5) & 0x01) | ((vdifdata_in[4*ix +2] >> 3) & 0x02) ) - bias ;
-		segdata[16* ix + 10] = (float)(((vdifdata_in[4*ix +2] >> 3) & 0x01) | ((vdifdata_in[4*ix +2] >> 1) & 0x02) ) - bias ;
-		segdata[16* ix + 11] = (float)(((vdifdata_in[4*ix +2] >> 1) & 0x01) | ((vdifdata_in[4*ix +2] << 1) & 0x02) ) - bias ;
-		segdata[16* ix + 12] = (float)(((vdifdata_in[4*ix +3] >> 7) & 0x01) | ((vdifdata_in[4*ix +3] >> 5) & 0x02) ) - bias ;
-		segdata[16* ix + 13] = (float)(((vdifdata_in[4*ix +3] >> 5) & 0x01) | ((vdifdata_in[4*ix +3] >> 3) & 0x02) ) - bias ;
-		segdata[16* ix + 14] = (float)(((vdifdata_in[4*ix +3] >> 3) & 0x01) | ((vdifdata_in[4*ix +3] >> 1) & 0x02) ) - bias ;
-		segdata[16* ix + 15] = (float)(((vdifdata_in[4*ix +3] >> 1) & 0x01) | ((vdifdata_in[4*ix +3] << 1) & 0x02) ) - bias ;
+		segdata[4* ix     ] = (float)(((vdifdata_in[ix   ] >> 7) & 0x01) | ((vdifdata_in[ix   ] >> 5) & 0x02) ) - bias ;
+		segdata[4* ix +  1] = (float)(((vdifdata_in[ix   ] >> 5) & 0x01) | ((vdifdata_in[ix   ] >> 3) & 0x02) ) - bias ;
+		segdata[4* ix +  2] = (float)(((vdifdata_in[ix   ] >> 3) & 0x01) | ((vdifdata_in[ix   ] >> 1) & 0x02) ) - bias ;
+		segdata[4* ix +  3] = (float)(((vdifdata_in[ix   ] >> 1) & 0x01) | ((vdifdata_in[ix   ] << 1) & 0x02) ) - bias ;
 	}
 }
 //-------- Format segment data using 2-stream 2-bit (VERA1)

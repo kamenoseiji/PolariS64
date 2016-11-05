@@ -103,7 +103,7 @@ int main(
         addr_offset = PageSize* (threadID + NST* (pageID & 0x01)) +  (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
         if(frameID % FramePerPage == FramePerPage - 1){
-            printf( "Page=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, frameID, threadID, addr_offset);
+            // printf( "Page=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, frameID, threadID, addr_offset);
             threadFlag |= (0x01 << threadID);
             memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE);
             if(threadFlag == threadMask){

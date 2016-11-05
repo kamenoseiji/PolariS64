@@ -38,7 +38,7 @@ main(
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
 	float			*cuPowerSpec;		// (autocorrelation) Power Spectrum
-	// float2			*cuXSpec;
+	float2			*cuXSpec;           // cross power spectrum
 	int				modeSW = 0;
 
 	//-------- Pointer to functions
@@ -64,6 +64,7 @@ main(
 	cudaMalloc( (void **)&cuRealData, NsegPage* NFFT* sizeof(cufftReal) );              // For FFT segments in a page
 	cudaMalloc( (void **)&cuSpecData, NST* NsegPage* NFFTC* sizeof(cufftComplex) );     // For FFTed spectra
 	cudaMalloc( (void **)&cuPowerSpec,NST* NFFT2* sizeof(float));                       // For autcorr spectra
+	cudaMalloc( (void **)&cuXSpec,    NST* NFFT2* sizeof(float2)/ 2);                   // For cross-corr spectra
 	if(cudaGetLastError() != cudaSuccess){
 	 	fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
@@ -112,6 +113,10 @@ main(
 		    for(seg_index=0; seg_index<NsegPage; seg_index++){
 				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
+		    //---- Cross Corr
+		    for(seg_index=0; seg_index<NsegPage; seg_index++){
+				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
+			}
 		}
 		printf("%lf [msec]\n", GetTimer());
 
@@ -142,7 +147,7 @@ main(
 		if( Pfile_ptr[index] != NULL){	fclose(Pfile_ptr[index]);}
 	}
 	cufftDestroy(cufft_plan);
-	cudaFree(cuvdifdata_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec); // cudaFree(cuXSpec);
+	cudaFree(cuvdifdata_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec); cudaFree(cuXSpec);
 
     return(0);
 }

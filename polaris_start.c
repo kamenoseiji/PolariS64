@@ -67,7 +67,7 @@ int main(
 		}
 	}
 //------------------------------------------ Access to the shared parameter
-	sleep(1);		// Wait for 1 sec until Shared memory will be ready
+	sleep(1);		// Wait for 1 msec until Shared memory will be ready
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	param_ptr->pid_shm_alloc = pid;
@@ -97,7 +97,7 @@ int main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-	sleep(1);	// Wait 1 sec until shared memory will be ready
+	sleep(1);	// Wait 100 msec until shared memory will be ready
 //------------------------------------------ Start acquiring VDIF data
 	if( fork() == 0){
 		//-------- Simulation Mode
@@ -147,7 +147,7 @@ int main(
 		}
 	}
 //------------------------------------------ Start CUDA FFT
-	sleep(1);		// Wait 1 sec
+	usleep(1000);		// Wait 1 msec
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], CUDA_FFT);
 		sprintf(path_str, "%s%s", path_dir, CUDA_FFT);

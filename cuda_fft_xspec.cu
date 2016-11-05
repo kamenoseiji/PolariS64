@@ -42,28 +42,23 @@ main(
 	int				modeSW = 0;
 
 	//-------- Pointer to functions
- 	void	(*segform[5])( unsigned char *, float *, int);
- 	segform[0] = segform_1st_2bit;
- 	segform[1] = segform_2st_2bit;
- 	segform[2] = segform_4st_2bit;
- 	segform[3] = segform_8st_2bit;
- 	segform[4] = segform_16st_2bit;
+ 	void	(*segform[4])( unsigned char *, float *, int);
+ 	segform[0] = segform_1bit;
+ 	segform[1] = segform_2bit;
+ 	segform[2] = segform_4bit;
+ 	segform[3] = segform_8bit;
 //------------------------------------------ Access to the SHARED MEMORY
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	vdifdata_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifdata_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
     PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
-    /*
-	switch( param_ptr->num_st ){
+	switch( param_ptr->qbit ){
  		case  1 :	modeSW = 0; break;
  		case  2 :	modeSW = 1; break;
  		case  4 :	modeSW = 2; break;
  		case  8 :	modeSW = 3; break;
- 		case 16 :	modeSW = 4; break;
  	}
-    */
-    modeSW = 0;
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuvdifdata_ptr, PageSize);                                    // for Sampled Data
 	cudaMalloc( (void **)&cuRealData, NsegPage* NFFT* sizeof(cufftReal) );              // For FFT segments in a page
@@ -104,7 +99,7 @@ main(
 		    //-------- Segment Format
 		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 		    for(index=0; index < NsegPage; index ++){
-			   (*segform[modeSW])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[index]], &cuRealData[index* NFFT], NFFT);
+			    (*segform[modeSW])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[index]], &cuRealData[index* NFFT], NFFT);
 		    }
 
 		    //-------- FFT Real -> Complex spectrum

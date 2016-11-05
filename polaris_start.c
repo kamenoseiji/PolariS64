@@ -82,7 +82,7 @@ int main(
 	param_ptr->num_ch    = num_ch;		// Number of spectral channels
 	param_ptr->fsample   = pow2round(2* bandWidth)* 1000000;	    // Sampling freq.
 	param_ptr->segRate   = param_ptr->fsample / param_ptr->segLen;  // Number of segments in 1 sec
-	param_ptr->segPage   = param_ptr->segRate / PAGENUM;            // Number of segments in a page (0.1 sec)
+	param_ptr->segPage   = param_ptr->segRate / PAGEPERSEC;         // Number of segments in a page (0.1 sec)
 	printf("AREC FLAG = %X \n", param_ptr->AC_REC);
 	printf("%d Megabit  per sec\n", param_ptr->num_st* (param_ptr->fsample/1000000) * param_ptr->qbit);
 	printf("%d Segments per sec\n", param_ptr->segRate);

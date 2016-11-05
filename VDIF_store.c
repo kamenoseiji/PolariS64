@@ -67,7 +67,7 @@ int main(
 	// if(argc > 1){ 	dumpfile_ptr = fopen(argv[1], "w"); }
 //------------------------------------------ Paging
     MaxFrameIndex = param_ptr->fsample / VDIFDATA_SIZE / 8 * param_ptr->qbit - 1;
-    PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;    // Page size [bytes]
+    PageSize = param_ptr->fsample  / 8 / PAGEPERSEC * param_ptr->qbit;    // Page size [bytes]
     FramePerPage = PageSize / VDIFDATA_SIZE;
 //------------------------------------------ Open Socket to OCTAVIA
 	setvbuf(stdout, (char *)NULL, _IONBF, 0); 	// Disable stdout cache

@@ -11,7 +11,6 @@ NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
 PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view VDIF_store cuda_fft_xspec shm_spec_view shm_power_view bitDist VDIF_sim
-#PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view shm_power_view k5sample_store k5sim PolariSplit PolariBunch
 GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft

@@ -54,6 +54,7 @@ main(
 	vdifdata_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifdata_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
     PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
+    /*
 	switch( param_ptr->num_st ){
  		case  1 :	modeSW = 0; break;
  		case  2 :	modeSW = 1; break;
@@ -61,13 +62,13 @@ main(
  		case  8 :	modeSW = 3; break;
  		case 16 :	modeSW = 4; break;
  	}
+    */
+    modeSW = 0;
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuvdifdata_ptr, PageSize);                                    // for Sampled Data
 	cudaMalloc( (void **)&cuRealData, NsegPage* NFFT* sizeof(cufftReal) );              // For FFT segments in a page
 	cudaMalloc( (void **)&cuSpecData, NST* NsegPage* NFFTC* sizeof(cufftComplex) );     // For FFTed spectra
 	cudaMalloc( (void **)&cuPowerSpec,NST* NFFT2* sizeof(float));                       // For autcorr spectra
-	// cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
-
 	if(cudaGetLastError() != cudaSuccess){
 	 	fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
@@ -75,7 +76,7 @@ main(
  		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1); }
 //------------------------------------------ Parameters for S-part format
  	segment_offset(param_ptr, offset);
-	for(seg_index=0; seg_index< NsegPage; seg_index++){	printf("Offset[%d] = %d\n", seg_index, offset[seg_index]);}
+	// for(seg_index=0; seg_index< NsegPage; seg_index++){	printf("Offset[%d] = %d\n", seg_index, offset[seg_index]);}
 //------------------------------------------ K5 Header and Data
 	cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
  	param_ptr->current_rec = 0;
@@ -84,9 +85,7 @@ main(
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Initial setup for cycles
-		// if( param_ptr->buf_index == 0){
 		cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
-		// }
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
@@ -99,15 +98,14 @@ main(
 		// usleep(8);	// Wait 0.01 msec
 		StartTimer();
         for(threadID=0; threadID < NST; threadID++){
-		    printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
+		    // printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
 		    //-------- SHM -> GPU memory transfer
 		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID + 2* param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
 		    //-------- Segment Format
 		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 		    for(index=0; index < NsegPage; index ++){
-			   (*segform[0])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[index]], &cuRealData[index* NFFT], NFFT);
+			   (*segform[modeSW])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[index]], &cuRealData[index* NFFT], NFFT);
 		    }
-			// (*segform[0])<<<Dg, Db>>>( &cuvdifdata_ptr[offset[0]], &cuRealData[0], NsegPage* NFFT);
 
 		    //-------- FFT Real -> Complex spectrum
 		    cudaThreadSynchronize();
@@ -139,7 +137,7 @@ main(
 			}
 			param_ptr->current_rec = 0;
 		} else { param_ptr->current_rec ++;}
-		param_ptr->current_rec ++;
+		// param_ptr->current_rec ++;
 	}	// End of part loop
 /*
 -------------------------------------------- RELEASE the SHM

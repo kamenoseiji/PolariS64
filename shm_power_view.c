@@ -48,10 +48,10 @@ int main(
 		semop( param_ptr->sem_data_id, &sops, 1);
 
 		//-------- Plot Power Monitor
-		for(IFindex=0; IFindex<param_ptr->num_st; IFindex++){
+		for(IFindex=0; IFindex<NST; IFindex++){
 			memcpy(tempPower, bitPower[IFindex], POWER_TIME_NUM*sizeof(float));
-			bitPower[IFindex][0] = 10.0* log10(param_ptr->power[IFindex]);
 			memcpy(&bitPower[IFindex][1], tempPower, (POWER_TIME_NUM-1)*sizeof(float));
+			bitPower[IFindex][0] = 10.0* log10(param_ptr->power[IFindex]);
 		}
 		cpg_power(param_ptr, bitPower);
 	}

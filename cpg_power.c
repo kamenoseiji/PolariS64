@@ -69,7 +69,6 @@ int	cpg_power(
 	//-------- UTC
 	x_text = xmin*0.3 + xmax*0.7; y_text = 0.05*ymin + 0.95* ymax;
 	sprintf(text, "%04d %03d %02d:%02d:%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec); cpgsci(1);	cpgtext( x_text, y_text, text );
-
 	cpgebuf();
 
 	return(0);

@@ -23,9 +23,7 @@ int main(
 	unsigned char	*vdifdata_ptr;		// Pointer to the shared K5 data
 	unsigned char	*shm_write_ptr;		// Writing Pointer
 	int		sock;						// Socket ID descriptor
-	int		frameID, prevFrameID;		// Frame ID
-    int     thredID;                    // thred ID (= stream index)
-	int		frame_addr;					// Write address in page
+	int		frameID, threadID;		    // Frame ID and thread ID (= stream index)
 	int		accum_index  = 0;			// Accumulated part Index
 	struct sockaddr_in	addr;			//  Socket Address
 	struct ip_mreq		mreq;			// Multicast Request
@@ -35,7 +33,6 @@ int main(
     int     page_index;                 // Index for page (0 - 9)
     int     FramePerPage;               // Bytes per page
     int     addr_offset;                // Address from the head of the page
-    int     dump_counter = 16;
 	unsigned char	buf[VDIF_SIZE];		// 1312 bytes
 //------------------------------------------ Open Socket to OCTAVIA
 	// sock = socket(PF_INET, SOCK_DGRAM, 0);
@@ -82,13 +79,13 @@ int main(
 		rv = recv(sock, buf, sizeof(buf), 0);
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
     }
-    thredID    = ((buf[12] & 0x03) << 8 ) + buf[13];
-    printf("frameID = %06d : thredID = %d\n", frameID, thredID);
-    while(thredID < NST){
+    threadID    = ((buf[12] & 0x03) << 8 ) + buf[13];
+    printf("frameID = %06d : threadID = %d\n", frameID, threadID);
+    while(threadID < NST){
 		rv = recv(sock, buf, sizeof(buf), 0);
-        thredID    = ((buf[12] & 0x03) << 8 ) + buf[13];
+        threadID    = ((buf[12] & 0x03) << 8 ) + buf[13];
+        printf("frameID = %06d : threadID = %d\n", frameID, threadID);
     }
-    printf("frameID = %06d : thredID = %d\n", frameID, thredID);
 //------------------------------------------ Open Socket to OCTAVIA
     param_ptr->part_index = 0;	
  	while( param_ptr->validity & ACTIVE ){
@@ -96,20 +93,21 @@ int main(
 		//-------- Read VDIF packet
 		rv = recv(sock, buf, sizeof(buf), 0);
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
-        thredID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
+        threadID   = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
         page_index =  (frameID / FramePerPage) % 10;
-		// param_ptr->part_index = page_index & 0x01;
-        addr_offset = PageSize* (thredID + 2* (page_index & 0x01)) +  (frameID % FramePerPage)* VDIFDATA_SIZE;
+        addr_offset = PageSize* (threadID + 2* (page_index & 0x01)) +  (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
         if(frameID % FramePerPage == FramePerPage - 1){
-		    param_ptr->part_index = page_index & 0x01;
-            // printf( "Page=%d Part=%d FrameID=%d ThreadID=%d ADDR=%d\n", page_index, param_ptr->part_index, frameID, thredID, addr_offset);
-            memcpy( vdifhead_ptr, buf, VDIFHEAD_SIZE);
-	 		param_ptr->validity |= ENABLE;
-	 		sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)1; sops.sem_flg = (short)0;
-	 		semop(param_ptr->sem_data_id, &sops, 1);
-	 		sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0;
-	 		semop(param_ptr->sem_data_id, &sops, 1);
+            if(threadID == NST - 1){
+		        param_ptr->part_index = page_index & 0x01;
+                printf( "Page=%d Part=%d FrameID=%d ThreadID=%d ADDR=%d\n", page_index, param_ptr->part_index, frameID, threadID, addr_offset);
+                memcpy( vdifhead_ptr, buf, VDIFHEAD_SIZE);
+	 		    param_ptr->validity |= ENABLE;
+	 		    sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)1; sops.sem_flg = (short)0;
+	 		    semop(param_ptr->sem_data_id, &sops, 1);
+	 		    sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0;
+	 		    semop(param_ptr->sem_data_id, &sops, 1);
+            }
         }
 	}
 //------------------------------------------ Stop Sampling

@@ -66,6 +66,7 @@ union VDIF32byte{
 #define	XSPEC_SIZE		MAX_NIF* param_ptr->num_ch* sizeof(float)
 #define	MAX_FILE_REC	3600		// Maximum number of records in output file
 #define	POWER_TIME_NUM	1024		// Maximum number of points to plot total power
+#define	MAX_CH_VIEW	1024		// Maximum number of channels to plot
 
 //-------- Shared Parameter
 struct	SHM_PARAM{

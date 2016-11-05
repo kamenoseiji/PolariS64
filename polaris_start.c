@@ -129,7 +129,6 @@ int main(
 //------------------------------------------ Start Spectrum Viewer
 	if( param_ptr->validity & PGPLOT ){
 		strcpy(cmd[1], pgdev);
-        #ifdef HIDOI
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], POWER_VIEW);
 			sprintf(path_str, "%s%s", path_dir, POWER_VIEW);
@@ -138,7 +137,6 @@ int main(
 				perror("Can't Create Chiled Proces!!\n"); return(-1);
 			}
 		}
-        #endif
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], SPEC_VIEW);
 			sprintf(path_str, "%s%s", path_dir, SPEC_VIEW);
@@ -158,7 +156,6 @@ int main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-    #ifdef HIDOI
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], BITDIST);
 		sprintf(path_str, "%s%s", path_dir, BITDIST);
@@ -167,7 +164,6 @@ int main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-    #endif
     return(0);
 }
 

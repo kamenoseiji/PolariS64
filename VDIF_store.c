@@ -66,7 +66,7 @@ int main(
 	vdifhead_ptr = shmat( param_ptr->shrd_vdifhead_id, NULL, 0 );
 	vdifdata_ptr = shmat( param_ptr->shrd_vdifdata_id, NULL, 0 );
 	param_ptr->validity |= ENABLE;		// Set Shared memory readiness bit to 1
-	// if(argc > 1){ 	dumpfile_ptr = fopen(argv[1], "w"); }
+	if(argc > 1){ 	dumpfile_ptr = fopen(argv[1], "w"); }
 //------------------------------------------ Paging
     MaxFrameIndex = param_ptr->fsample / VDIFDATA_SIZE / 8 * param_ptr->qbit - 1;
     PageSize = param_ptr->fsample  / 8 / PAGEPERSEC * param_ptr->qbit;    // Page size [bytes]
@@ -103,7 +103,7 @@ int main(
         addr_offset = PageSize* (threadID + NST* (pageID & 0x01)) +  (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
         if(frameID % FramePerPage == FramePerPage - 1){
-            // printf( "Page=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, frameID, threadID, addr_offset);
+            printf( "Page=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, frameID, threadID, addr_offset);
             threadFlag |= (0x01 << threadID);
             memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE);
             if(threadFlag == threadMask){
@@ -117,7 +117,7 @@ int main(
         }
 	}
 //------------------------------------------ Stop Sampling
-	// fclose(dumpfile_ptr);
+	fclose(dumpfile_ptr);
 	close(sock);
 	param_ptr->validity &= (~ACTIVE);		// Set Sampling Activity Bit to 0
 

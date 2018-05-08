@@ -7,7 +7,9 @@
 #include <cufft.h>
 #include <string.h>
 #include <math.h>
-#include </usr/local/cuda/samples/common/inc/timer.h>
+// #include </usr/local/cuda/samples/common/inc/timer.h>
+// #include <cuda_runtime.h>
+// #include <timer.h>
 #include "cuda_polaris.inc"
 #define SCALEFACT 1.0/(NFFT* NsegSec)
 
@@ -92,7 +94,7 @@ main(
 		sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 		// usleep(8);	// Wait 0.01 msec
-		StartTimer();
+		// StartTimer();
         for(threadID=0; threadID < NST; threadID++){
 		    // printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
 		    //-------- SHM -> GPU memory transfer
@@ -118,7 +120,7 @@ main(
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
 			}
 		}
-		printf("%lf [msec]\n", GetTimer());
+		// printf("%lf [msec]\n", GetTimer());
 
 		//-------- Dump cross spectra to shared memory
 		// if( param_ptr->buf_index == PARTNUM - 1){

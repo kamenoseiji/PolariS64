@@ -28,7 +28,7 @@ int main(
 		perror("  Error : shm_alloc() can't access to the shared memory!!");   return(-1);
 	};
 	shm_param_fptr = fopen(SHM_PARAM_FILE, "w");
-	fprintf(shm_param_fptr, SHM_FMT, SHM_PARAM_KEY, shrd_param_id, sizeof(struct SHM_PARAM) );
+	fprintf(shm_param_fptr, SHM_FMT, SHM_PARAM_KEY, shrd_param_id, (int)sizeof(struct SHM_PARAM) );
 	fclose(shm_param_fptr);
 //------------------------------------------ ALLOC SHARED MEMORY
 	//-------- Semaphore for data area

@@ -1,13 +1,12 @@
 #----------------- LIBRARY -------------------
-PGDIR = /usr/local/pgplot
+PGDIR = /usr/lib
 CPGDIR = $(PGDIR)
 PGPLOT= $(PGDIR)/libpgplot.a
 CPGPLOT= $(CPGDIR)/libcpgplot.a
-BINDIR = /usr/local/custom/bin
+BINDIR = /usr/local/bin
 #----------------- LINK OPTIONS -------------------
-CFLAGS= -I/usr/local/pgplot -I/usr/X11R6/include
-CCOMPL=gcc $(CFLAGS)
-NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
+CCOMPL=gcc 
+NVCC=nvcc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
 PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view VDIF_store cuda_fft_xspec shm_spec_view shm_power_view bitDist VDIF_sim
@@ -15,6 +14,7 @@ GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft
 CUDALIB= -lcutil
+PNGLIB = -lpng
 #----------------- MAPPING ------------------------
 OBJ_start= polaris_start.o shm_access.o pow2round.o
 OBJ_shm_param= shm_param.o shm_init_create.o shm_access.o erase_shm.o
@@ -55,10 +55,10 @@ bitDist : $(OBJ_bitDist)
 	$(CCOMPL) -o $@ $(OBJ_bitDist) $(MATH)
 
 shm_spec_view : $(OBJ_spec_view)
-	$(FCOMPL) -o $@ $(OBJ_spec_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS)
+	$(FCOMPL) -o $@ $(OBJ_spec_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS) $(PNGLIB)
 
 shm_power_view : $(OBJ_power_view)
-	$(FCOMPL) -o $@ $(OBJ_power_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS)
+	$(FCOMPL) -o $@ $(OBJ_power_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS) $(PNGLIB)
 
 cuda_fft_xspec : $(OBJ_cuda_fft)
 	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB)

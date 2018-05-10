@@ -34,6 +34,7 @@ main(
 	FILE	*Afile_ptr[16];				// File Pointer to write
 	char	fname_pre[16];
 
+	//-------- CUDA data
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	unsigned char	*cuvdifdata_ptr;	// Pointer to VDIF data in GPU
 	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
@@ -41,7 +42,9 @@ main(
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
 	float			*cuPowerSpec;		// (autocorrelation) Power Spectrum
 	float2			*cuXSpec;           // cross power spectrum
+    cudaEvent_t     start, stop;        // Time-mesurement events
 	int				modeSW = 0;
+    float           elapsed_time_ms;
 
 	//-------- Pointer to functions
  	void	(*segform[4])( unsigned char *, float *, int);
@@ -49,12 +52,14 @@ main(
  	segform[1] = segform_2bit;
  	segform[2] = segform_4bit;
  	segform[3] = segform_8bit;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 //------------------------------------------ Access to the SHARED MEMORY
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	vdifdata_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifdata_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
-    PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
+    PageSize = param_ptr->fsample  / 8 / PAGEPERSEC * param_ptr->qbit;
 	switch( param_ptr->qbit ){
  		case  1 :	modeSW = 0; break;
  		case  2 :	modeSW = 1; break;
@@ -93,12 +98,13 @@ main(
 		//-------- Wait for S-part memory 
 		sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
-		// usleep(8);	// Wait 0.01 msec
+		usleep(8);	// Wait 0.01 msec
 		// StartTimer();
+        cudaEventRecord(start, 0);
         for(threadID=0; threadID < NST; threadID++){
 		    // printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
 		    //-------- SHM -> GPU memory transfer
-		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID + 2* param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
+		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
 		    //-------- Segment Format
 		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 		    for(index=0; index < NsegPage; index ++){
@@ -116,11 +122,15 @@ main(
 				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
 		    //---- Cross Corr
-		    for(seg_index=0; seg_index<NsegPage; seg_index++){
-				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
-			}
+		    // for(seg_index=0; seg_index<NsegPage; seg_index++){
+			// 	accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
+			// }
 		}
 		// printf("%lf [msec]\n", GetTimer());
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&elapsed_time_ms, start, stop);
+		printf("%8.2f [msec]\n", elapsed_time_ms);
 
 		//-------- Dump cross spectra to shared memory
 		// if( param_ptr->buf_index == PARTNUM - 1){

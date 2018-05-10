@@ -24,6 +24,7 @@ int main(
 	unsigned char	*shm_write_ptr;		// Writing Pointer
 	int		sock;						// Socket ID descriptor
 	int		frameID, threadID;		    // Frame ID and thread ID (= stream index)
+    int     frame_index;
     int     threadFlag = 0x00000000;    // 32-bit flag for thread readiness
     int     threadMask = 0x00000000;    // 32-bit mask for thread readiness
 	int		accum_index  = 0;			// Accumulated part Index
@@ -83,12 +84,13 @@ int main(
     }
     threadID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
     threadFlag |= (0x01 << threadID);
-    // printf("frameID = %06d : threadID = %d / %d / %d\n", frameID, threadID, threadFlag, threadMask);
+    printf("frameID = %06d MaxFrame = %06d PageSize = %06d: threadID = %d / %d / %d\n", frameID, MaxFrameIndex, PageSize, threadID, threadFlag, threadMask);
     while(threadFlag < threadMask ){
 		rv = recv(sock, buf, sizeof(buf), 0);
+		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
         threadID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
         threadFlag |= (0x01 << threadID);
-        // printf("frameID = %06d : threadID = %d / %d / %d\n", frameID, threadID, threadFlag, threadMask);
+        printf("frameID = %06d : threadID = %d / %d / %d\n", frameID, threadID, threadFlag, threadMask);
     }
 //------------------------------------------ Open Socket to OCTAVIA
     param_ptr->part_index = 0;	
@@ -100,11 +102,11 @@ int main(
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
         threadID   = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
         pageID     =  (frameID / FramePerPage) % 10;
-        addr_offset = PageSize* (threadID + NST* (pageID & 0x01)) +  (frameID % FramePerPage)* VDIFDATA_SIZE;
+        addr_offset = PageSize* (threadID*2 + (pageID & 0x01)) + (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
-        if(frameID % FramePerPage == FramePerPage - 1){
-            printf( "Page=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, frameID, threadID, addr_offset);
+        if((frameID % FramePerPage) == (FramePerPage - 1)){
             threadFlag |= (0x01 << threadID);
+            printf("Page=%d FrameID=%d ThreadID=%d threadFlag=%d threadMask=%d ADDR=%d\n", pageID, frameID, threadID, threadFlag, threadID, addr_offset);
             memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE);
             if(threadFlag == threadMask){
 		        param_ptr->part_index = pageID & 0x01;

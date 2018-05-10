@@ -27,7 +27,7 @@ int main(
 	int		cycle_index;				// Index for cycle of buffer (4 cycles per sec)
 	int		page_index;					// Index for page in buffer (2 pages per cycle)
 	int		seg_index;					// Index for Segment
-	int		IF_index;
+	int		threadID;                   // Thread (=IF stream) ID
     int     PageSize;
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
@@ -63,7 +63,7 @@ int main(
  		case 16 :	modeSW = 4; break;
  	}
 //------------------------------------------ VSI Header and Data
-    PageSize = param_ptr->fsample  / 8 / 10 * param_ptr->qbit;
+    PageSize = param_ptr->fsample  / 8 / PAGEPERSEC * param_ptr->qbit;
  	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
@@ -75,8 +75,7 @@ int main(
 		//-------- Wait for the first half in the S-part
 		sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
-		usleep(1000);	// Wait 1 msec
-
+		usleep(8);	// Wait 0.01 msec
 		cycle_index = param_ptr->part_index / 2;	// 4 cycles per 1 sec
 		page_index  = param_ptr->part_index % 2;	// 2 pages per cycle
 		VDIFutc( vdifhead_ptr, param_ptr);
@@ -85,6 +84,12 @@ int main(
 		//-------- BitDist
 		// (*bitCount[modeSW])(HALFBUF/4, &vdifdata_ptr[HALFBUF* page_index], bitStat); 
 		// printf("Power [dB] = ");
+        for(threadID=0; threadID < NST; threadID++){
+            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
+            gaussBit(4, &bitStat[4* threadID], param, param_err );
+            param_ptr->power[threadID] = 1.0 / (param[0]* param[0]);
+        }
+        /*
 		for(IF_index=0; IF_index<param_ptr->num_st; IF_index ++){
             // bitDist1st2bit(PageSize, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
             bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
@@ -92,6 +97,7 @@ int main(
 		 	param_ptr->power[IF_index] = 1.0 / (param[0]* param[0]);
 		 	// printf("%5.2f ", 10.0* log10(param_ptr->power[IF_index]));
 		}
+        */
 		sops.sem_num = (ushort)SEM_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
 		// printf("\n");
 

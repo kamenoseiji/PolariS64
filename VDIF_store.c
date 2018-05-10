@@ -7,9 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
-// #include <stdint.h>
-// #include <sys/ioctl.h>
-
+int VDIFutc();
 
 int main(
 	int		argc,			// Number of Arguments
@@ -97,7 +95,6 @@ int main(
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
         threadID   = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
         partID     = (frameID / FramePerPage) & 0x01;
-        // pageID     =  (frameID / FramePerPage) % 10;
         pageID     =  threadID* 2 + partID;
         addr_offset = PageSize* pageID + (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
@@ -105,11 +102,12 @@ int main(
             // printf("Page=%d Part=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, partID, frameID, threadID, addr_offset);
             memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE); // copy VDIF header
             if(threadID == (NST - 1)){
-		        param_ptr->part_index = pageID & 0x01;
+                VDIFutc( vdifhead_ptr, param_ptr);
+		        param_ptr->part_index = partID;
 	 		    param_ptr->validity |= ENABLE;
-	 		    sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0;
-	 		    semop(param_ptr->sem_data_id, &sops, 1);
 	 		    sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)1; sops.sem_flg = (short)0;
+	 		    semop(param_ptr->sem_data_id, &sops, 1);
+	 		    sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 	 		    semop(param_ptr->sem_data_id, &sops, 1);
             }
         }

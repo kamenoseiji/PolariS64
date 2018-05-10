@@ -15,7 +15,6 @@ int	bitDist2st2bit(int, unsigned char *, unsigned int *);
 int	bitDist4st2bit(int, unsigned char *, unsigned int *);
 int	bitDist8st2bit(int, unsigned char *, unsigned int *);
 int	bitDist16st2bit(int, unsigned char *, unsigned int *);
-int VDIFutc();
 int gaussBit();
 
 int main(
@@ -78,9 +77,6 @@ int main(
 		usleep(8);	// Wait 0.01 msec
 		cycle_index = param_ptr->part_index / 2;	// 4 cycles per 1 sec
 		page_index  = param_ptr->part_index % 2;	// 2 pages per cycle
-		VDIFutc( vdifhead_ptr, param_ptr);
-		// printf("Ready to process Part=%d Cycle=%d Page=%d\n", param_ptr->part_index, cycle_index, page_index);
-
 		//-------- BitDist
         for(threadID=0; threadID < NST; threadID++){
             bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
@@ -222,37 +218,6 @@ int gaussBit(
 	return(loop_counter);
 }
 
-//-------- Convert SoD (Second of Day) into hour, min, and second
-int sod2hms(
-	int	sod,		// Second of Day
-	int	*hour,		// Hour
-	int	*min,		// Min
-	int	*sec)		// Sec
-{
-	*hour = sod / 3600;
-	*min  = (sod % 3600) / 60;
-	*sec  = (sod % 60);
-	return(*sec);
-}
-
-//-------- UTC in the VDIF header
-int	VDIFutc(
-	unsigned char		*vdifhead_ptr,	// IN: VDIF header (32 bytes)
-	struct SHM_PARAM	*param_ptr)		// OUT: UTC will be set in param_ptr
-{
-	int	ref_sec = 0;	// Seconds from reference date
-	int	ref_epoch = 0;	// Half-year periods from Y2000
-
-	ref_sec    = ((vdifhead_ptr[0] & 0x3f) << 24) + (vdifhead_ptr[1] << 16) + (vdifhead_ptr[2] << 8) + vdifhead_ptr[3];
-	ref_epoch  = (vdifhead_ptr[4]      ) & 0x3f;
-
-	param_ptr->year = 2000 + ref_epoch/2;
-	param_ptr->doy  =  ref_sec / 86400 + (ref_epoch%2)* 182;
-	if(param_ptr->year % 4 == 0){	param_ptr->doy++;}
-	sod2hms( ref_sec%86400, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec) );
-
-	return(ref_sec);
-}
 //-------- 2-Bit 1-st Distribution Counter
 int bitDist1st2bit(
 	int				nbytes,		// Number of bytes to examine

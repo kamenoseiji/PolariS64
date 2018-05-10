@@ -82,7 +82,7 @@ main(
 	// for(seg_index=0; seg_index< NsegPage; seg_index++){	printf("Offset[%d] = %d\n", seg_index, offset[seg_index]);}
 //------------------------------------------ K5 Header and Data
 	cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
- 	param_ptr->current_rec = 0;
+ 	param_ptr->current_rec = -1;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
@@ -116,7 +116,8 @@ main(
 		    cudaThreadSynchronize();
 
 		    //---- Auto Corr
-		    Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
+		    // Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
+		    Dg.x= NFFT/512; Dg.y=1; Dg.z=1;
 		    for(seg_index=0; seg_index<NsegPage; seg_index++){
 				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
@@ -129,7 +130,7 @@ main(
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&elapsed_time_ms, start, stop);
-		printf("%8.2f [msec]\n", elapsed_time_ms);
+		printf("%4d %03d %02d:%02d:%02d %8.2f [msec]\n", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec, elapsed_time_ms);
 
 		//-------- Dump cross spectra to shared memory
 		// if( param_ptr->buf_index == PARTNUM - 1){

@@ -62,7 +62,7 @@ union VDIF32byte{
 #define	MAX_NIF			16			// Maximum Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	MAX_FILE_REC	3600		// Maximum number of records in output file
-#define	POWER_TIME_NUM	1024		// Maximum number of points to plot total power
+#define	POWER_TIME_NUM	512	    	// Maximum number of points to plot total power
 #define	MAX_CH_VIEW	1024		// Maximum number of channels to plot
 
 //-------- Shared Parameter

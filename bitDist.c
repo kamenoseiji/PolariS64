@@ -83,7 +83,7 @@ int main(
 
 		//-------- BitDist
         for(threadID=0; threadID < NST; threadID++){
-            bitDist1st2bit(4194304, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
+            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
             gaussBit(4, &bitStat[4* threadID], param, param_err );
             param_ptr->power[threadID] = 1.0 / (param[0]* param[0]);
         }

@@ -147,18 +147,18 @@ int main(
 		}
 	}
 //------------------------------------------ Start CUDA FFT
-	usleep(1000);		// Wait 1 msec
 	if( fork() == 0){
-		pid = getpid(); sprintf(cmd[0], CUDA_FFT);
-		sprintf(path_str, "%s%s", path_dir, CUDA_FFT);
+		pid = getpid(); sprintf(cmd[0], BITDIST);
+		sprintf(path_str, "%s%s", path_dir, BITDIST);
 		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
 		if( execl( path_str, cmd[0], (char *)NULL ) == -1){
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
+	usleep(1000);		// Wait 1 msec
 	if( fork() == 0){
-		pid = getpid(); sprintf(cmd[0], BITDIST);
-		sprintf(path_str, "%s%s", path_dir, BITDIST);
+		pid = getpid(); sprintf(cmd[0], CUDA_FFT);
+		sprintf(path_str, "%s%s", path_dir, CUDA_FFT);
 		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
 		if( execl( path_str, cmd[0], (char *)NULL ) == -1){
 			perror("Can't Create Chiled Proces!!\n"); return(-1);

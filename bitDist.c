@@ -82,26 +82,13 @@ int main(
 		// printf("Ready to process Part=%d Cycle=%d Page=%d\n", param_ptr->part_index, cycle_index, page_index);
 
 		//-------- BitDist
-		// (*bitCount[modeSW])(HALFBUF/4, &vdifdata_ptr[HALFBUF* page_index], bitStat); 
-		// printf("Power [dB] = ");
         for(threadID=0; threadID < NST; threadID++){
-            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
+            bitDist1st2bit(4194304, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
             gaussBit(4, &bitStat[4* threadID], param, param_err );
             param_ptr->power[threadID] = 1.0 / (param[0]* param[0]);
         }
-        /*
-		for(IF_index=0; IF_index<param_ptr->num_st; IF_index ++){
-            // bitDist1st2bit(PageSize, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
-            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (IF_index + 2* param_ptr->part_index)], &bitStat[4* IF_index]);
-		 	gaussBit(4, &bitStat[4* IF_index], param, param_err );
-		 	param_ptr->power[IF_index] = 1.0 / (param[0]* param[0]);
-		 	// printf("%5.2f ", 10.0* log10(param_ptr->power[IF_index]));
-		}
-        */
 		sops.sem_num = (ushort)SEM_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
-		// printf("\n");
-
-	}	// End of part loop
+	}	// End of loop
 /*
 -------------------------------------------- RELEASE the SHM
 */

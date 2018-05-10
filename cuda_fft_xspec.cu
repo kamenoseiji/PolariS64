@@ -75,7 +75,7 @@ main(
 	if(cudaGetLastError() != cudaSuccess){
 	 	fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
- 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, NST* NsegPage ) != CUFFT_SUCCESS){
+ 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, NsegPage ) != CUFFT_SUCCESS){
  		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1); }
 //------------------------------------------ Parameters for S-part format
  	segment_offset(param_ptr, offset);
@@ -102,10 +102,8 @@ main(
 		// StartTimer();
         cudaEventRecord(start, 0);
         for(threadID=0; threadID < NST; threadID++){
-		    // printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
 		    //-------- SHM -> GPU memory transfer
-		    printf("... CUFFT Part=%d Thread%d ADDR=%d\n", param_ptr->part_index, threadID, PageSize* (threadID*2 + param_ptr->part_index));
-		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
+		    cudaMemcpy(cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
 		    //-------- Segment Format
 		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 		    for(index=0; index < NsegPage; index ++){

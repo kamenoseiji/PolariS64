@@ -104,6 +104,7 @@ main(
         for(threadID=0; threadID < NST; threadID++){
 		    // printf("... Ready to process Part=%d Thread%d\n", param_ptr->part_index, threadID);
 		    //-------- SHM -> GPU memory transfer
+		    printf("... CUFFT Part=%d Thread%d ADDR=%d\n", param_ptr->part_index, threadID, PageSize* (threadID*2 + param_ptr->part_index));
 		    cudaMemcpy( cuvdifdata_ptr, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], PageSize, cudaMemcpyHostToDevice);
 		    //-------- Segment Format
 		    Dg.x=NFFT/512; Dg.y=1; Dg.z=1;

@@ -55,7 +55,7 @@ int main(
 	fclose(shm_vdifh_fptr);
 
     //-------- SHARED VDIF DATA AREA --------
-    TotalPageSize = (param_ptr->fsample / PAGENUM) / 8 * param_ptr->qbit* NST* PAGENUM;
+    TotalPageSize = (param_ptr->fsample / 80)* param_ptr->qbit* NST* 2;
 	if(shm_init_create(
 		VDIFDATA_KEY,					// ACCESS KEY
 		TotalPageSize,	                // Data Area Size

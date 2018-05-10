@@ -33,7 +33,7 @@ int main(
 	FILE	*dumpfile_ptr;				// Dump File
     int     MaxFrameIndex;              // Maximum number of frames in 1 sec
     int     PageSize;                   // Bytes per page
-    int     pageID;                     // Index for page (0 - 9)
+    int     pageID, partID;             // Index for page and part
     int     FramePerPage;               // Bytes per page
     int     addr_offset;                // Address from the head of the page
 	unsigned char	buf[VDIF_SIZE];		// 1312 bytes
@@ -85,12 +85,13 @@ int main(
     threadID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
     threadFlag |= (0x01 << threadID);
     printf("frameID = %06d MaxFrame = %06d PageSize = %06d: threadID = %d / %d / %d\n", frameID, MaxFrameIndex, PageSize, threadID, threadFlag, threadMask);
-    while(threadFlag < threadMask ){
+    // while(threadFlag < threadMask ){
+    while(threadID < (NST - 1)  ){
 		rv = recv(sock, buf, sizeof(buf), 0);
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
         threadID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
-        threadFlag |= (0x01 << threadID);
-        printf("frameID = %06d : threadID = %d / %d / %d\n", frameID, threadID, threadFlag, threadMask);
+        // threadFlag |= (0x01 << threadID);
+        printf("frameID = %06d : threadID = %d\n", frameID, threadID);
     }
 //------------------------------------------ Open Socket to OCTAVIA
     param_ptr->part_index = 0;	
@@ -101,14 +102,17 @@ int main(
 		rv = recv(sock, buf, sizeof(buf), 0);
 		frameID    = (buf[5] << 16) + (buf[6] << 8) + buf[7];
         threadID   = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
-        pageID     =  (frameID / FramePerPage) % 10;
-        addr_offset = PageSize* (threadID*2 + (pageID & 0x01)) + (frameID % FramePerPage)* VDIFDATA_SIZE;
+        partID     = (frameID / FramePerPage) & 0x01;
+        // pageID     =  (frameID / FramePerPage) % 10;
+        pageID     =  threadID* 2 + partID;
+        addr_offset = PageSize* pageID + (frameID % FramePerPage)* VDIFDATA_SIZE;
 		memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
         if((frameID % FramePerPage) == (FramePerPage - 1)){
             threadFlag |= (0x01 << threadID);
-            printf("Page=%d FrameID=%d ThreadID=%d threadFlag=%d threadMask=%d ADDR=%d\n", pageID, frameID, threadID, threadFlag, threadID, addr_offset);
-            memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE);
-            if(threadFlag == threadMask){
+            printf("Page=%d Part=%d FrameID=%d ThreadID=%d ADDR=%d\n", pageID, partID, frameID, threadID, addr_offset);
+            memcpy(&vdifhead_ptr[threadID* VDIFHEAD_SIZE], buf, VDIFHEAD_SIZE); // copy VDIF header
+            //if(threadFlag == threadMask){
+            if(threadID == (NST - 1)){
 		        param_ptr->part_index = pageID & 0x01;
 	 		    param_ptr->validity |= ENABLE;
 	 		    sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)1; sops.sem_flg = (short)0;

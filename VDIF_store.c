@@ -72,7 +72,7 @@ int main(
 	setvbuf(stdout, (char *)NULL, _IONBF, 0); 	// Disable stdout cache
 	param_ptr->validity |= ACTIVE;		// Set Sampling Activity Bit to 1
 	param_ptr->validity &= (~ENABLE);	// Wait until first second 
-//------------------------------------------ Open Socket to OCTAVIA
+//------------------------------------------ Receive VDIF from OCTAVIA
     frameID = 0;
  	while( frameID < MaxFrameIndex ){
 		rv = recv(sock, buf, sizeof(buf), 0);
@@ -86,7 +86,7 @@ int main(
         threadID    = ((buf[12] & 0x03) << 8 ) + buf[13] - 1;
         printf("frameID = %06d : threadID = %d\n", frameID, threadID);
     }
-//------------------------------------------ Open Socket to OCTAVIA
+//------------------------------------------ Receive VDIF and store into shared memory
     param_ptr->part_index = 0;	
  	while( param_ptr->validity & ACTIVE ){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){	break; }

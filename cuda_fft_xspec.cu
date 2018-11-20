@@ -14,7 +14,7 @@
 #define SCALEFACT 1.0/(NFFT* NsegSec)
 
 int	segment_offset(struct SHM_PARAM	*, int *);
-int	fileRecOpen(struct SHM_PARAM	*, char *, FILE **, FILE **);
+int	fileRecOpen(struct SHM_PARAM	*, char *, FILE **, FILE **, FILE **);
 
 main(
 	int		argc,			// Number of Arguments
@@ -30,8 +30,9 @@ main(
 	struct	sembuf		sops;			// Semaphore for data access
 	unsigned char	*vdifdata_ptr;		// Pointer to shared VDIF data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
-	FILE	*Pfile_ptr[16];				// File Pointer to write
-	FILE	*Afile_ptr[16];				// File Pointer to write
+	FILE	*Pfile_ptr[16];				// Power-Meter File Pointer to write
+	FILE	*Afile_ptr[16];				// Autocorr File Pointer to write
+	FILE	*Cfile_ptr[16];				// Cross corr File Pointer to write
 	char	fname_pre[16];
 
 	//-------- CUDA data
@@ -89,11 +90,12 @@ main(
 
 		//-------- Initial setup for cycles
 		cudaMemset( cuPowerSpec, 0, NST* NFFT2* sizeof(float));		// Clear Power Spectrum to accumulate
+		cudaMemset( cuXSpec, 0, NST* NFFT2* sizeof(float2)/2);		// Clear Power Spectrum to accumulate
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
-			fileRecOpen(param_ptr, fname_pre, Pfile_ptr, Afile_ptr);
+			fileRecOpen(param_ptr, fname_pre, Pfile_ptr, Afile_ptr, Cfile_ptr);
 		}
 		//-------- Wait for S-part memory 
 		sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
@@ -116,15 +118,15 @@ main(
 		    cudaThreadSynchronize();
 
 		    //---- Auto Corr
-		    // Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
 		    Dg.x= NFFT/512; Dg.y=1; Dg.z=1;
 		    for(seg_index=0; seg_index<NsegPage; seg_index++){
 				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
-		    //---- Cross Corr
-		    // for(seg_index=0; seg_index<NsegPage; seg_index++){
-			// 	accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
-			// }
+		}
+		//---- Cross Corr
+		for(seg_index=0; seg_index<NsegPage; seg_index++){
+		    // accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
+		    accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[seg_index* NFFTC], cuXSpec,  NFFT2);
 		}
 		// printf("%lf [msec]\n", GetTimer());
         cudaEventRecord(stop, 0);
@@ -140,12 +142,15 @@ main(
 		    if(Afile_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, Afile_ptr[index]);}   // Save Power Spectra
 			if(Pfile_ptr[index] != NULL){fwrite(&(param_ptr->power[index]), sizeof(float), 1, Pfile_ptr[index]);}   // Save Power
 		}
+		cudaMemcpy(&xspec_ptr[NST* NFFT2], cuXSpec, NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
+		if(Cfile_ptr[0] != NULL){fwrite(&xspec_ptr[NST* NFFT2], sizeof(float2), NFFT2, Cfile_ptr[0]);}   // Save Cross Spectra
 
 	    //-------- Refresh output data file
 		if(param_ptr->current_rec == MAX_FILE_REC - 1){
 			for(index=0; index<param_ptr->num_st; index++){
 				if( Afile_ptr[index] != NULL){   fclose(Afile_ptr[index]);}
 				if( Pfile_ptr[index] != NULL){   fclose(Pfile_ptr[index]);}
+				if( Cfile_ptr[0] != NULL){   fclose(Cfile_ptr[0]);}
 			}
 			param_ptr->current_rec = 0;
 		} else { param_ptr->current_rec ++;}
@@ -157,6 +162,7 @@ main(
 	for(index=0; index<param_ptr->num_st; index++){
 		if( Afile_ptr[index] != NULL){	fclose(Afile_ptr[index]);}
 		if( Pfile_ptr[index] != NULL){	fclose(Pfile_ptr[index]);}
+		if( Cfile_ptr[0] != NULL){	fclose(Cfile_ptr[0]);}
 	}
 	cufftDestroy(cufft_plan);
 	cudaFree(cuvdifdata_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec); cudaFree(cuXSpec);
@@ -182,8 +188,9 @@ int	segment_offset(
 int	fileRecOpen(
 	struct SHM_PARAM	*param_ptr,		// IN: Shared Parameter
 	char				*fname_pre,		// IN: File name prefix
-	FILE				**Pfile_ptr,		//OUT: file pointer
-	FILE				**Afile_ptr)		//OUT: file pointer
+	FILE				**Pfile_ptr,	//OUT: file pointer
+	FILE				**Afile_ptr,	//OUT: file pointer
+	FILE				**Cfile_ptr)	//OUT: file pointer
 {
 	char				fname[24];
 	int					file_index;		// IN: File index number
@@ -201,5 +208,10 @@ int	fileRecOpen(
 			fwrite( param_ptr, sizeof(struct SHM_PARAM), 1, Afile_ptr[file_index]);
 		} else { Afile_ptr[file_index] = NULL;}
 	}
+    if( param_ptr->XC_REC & 0x01){		// C file
+        sprintf(fname, "%s.%c.%02d", fname_pre, 'C', 0);
+        Cfile_ptr[0] = fopen(fname, "w");
+        fwrite( param_ptr, sizeof(struct SHM_PARAM), 1, Cfile_ptr[0]);
+    } else { Cfile_ptr[0] = NULL;}
 	return(0);
 }

@@ -114,19 +114,19 @@ main(
 
 		    //-------- FFT Real -> Complex spectrum
 		    cudaThreadSynchronize();
-		    cufftExecR2C(cufft_plan, cuRealData, cuSpecData);		// FFT Time -> Freq
+		    cufftExecR2C(cufft_plan, cuRealData, &cuSpecData[threadID* NsegPage* NFFTC]);		// FFT Time -> Freq
 		    cudaThreadSynchronize();
 
 		    //---- Auto Corr
 		    Dg.x= NFFT/512; Dg.y=1; Dg.z=1;
 		    for(seg_index=0; seg_index<NsegPage; seg_index++){
-				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
+				accumPowerSpec<<<Dg, Db>>>( &cuSpecData[(threadID* NsegPage + seg_index)* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
+				// accumPowerSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuPowerSpec[threadID* NFFT2],  NFFT2);
 			}
 		}
 		//---- Cross Corr
 		for(seg_index=0; seg_index<NsegPage; seg_index++){
-		    // accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
-		    accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[seg_index* NFFTC], cuXSpec,  NFFT2);
+		    accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
 		}
 		// printf("%lf [msec]\n", GetTimer());
         cudaEventRecord(stop, 0);
@@ -150,8 +150,8 @@ main(
 			for(index=0; index<param_ptr->num_st; index++){
 				if( Afile_ptr[index] != NULL){   fclose(Afile_ptr[index]);}
 				if( Pfile_ptr[index] != NULL){   fclose(Pfile_ptr[index]);}
-				if( Cfile_ptr[0] != NULL){   fclose(Cfile_ptr[0]);}
 			}
+			if( Cfile_ptr[0] != NULL){   fclose(Cfile_ptr[0]);}
 			param_ptr->current_rec = 0;
 		} else { param_ptr->current_rec ++;}
 		// param_ptr->current_rec ++;
@@ -159,11 +159,11 @@ main(
 /*
 -------------------------------------------- RELEASE the SHM
 */
-	for(index=0; index<param_ptr->num_st; index++){
+	for(index=0; index<NST; index++){
 		if( Afile_ptr[index] != NULL){	fclose(Afile_ptr[index]);}
 		if( Pfile_ptr[index] != NULL){	fclose(Pfile_ptr[index]);}
-		if( Cfile_ptr[0] != NULL){	fclose(Cfile_ptr[0]);}
 	}
+    if( Cfile_ptr[0] != NULL){	fclose(Cfile_ptr[0]);}
 	cufftDestroy(cufft_plan);
 	cudaFree(cuvdifdata_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec); cudaFree(cuXSpec);
 

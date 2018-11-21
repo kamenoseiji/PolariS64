@@ -9,7 +9,7 @@ CCOMPL=gcc
 NVCC=nvcc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view VDIF_store cuda_fft_xspec shm_spec_view shm_power_view bitDist VDIF_sim
+PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view VDIF_store cuda_fft_xspec shm_spec_view shm_power_view bitDist VDIF_sim L2C
 GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft
@@ -29,6 +29,7 @@ OBJ_cuda_fft = cuda_fft_xspec.o
 OBJ_bitDist = bitDist.o
 OBJ_PolariSplit = PolariSplit.o
 OBJ_PolariBunch = PolariBunch.o
+OBJ_L2C = cuda_L2C.o
 #----------------- Compile and link ------------------------
 polaris_start : $(OBJ_start)
 	$(CCOMPL) -o $@ $(OBJ_start)
@@ -63,6 +64,9 @@ shm_power_view : $(OBJ_power_view)
 cuda_fft_xspec : $(OBJ_cuda_fft)
 	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB)
 
+L2C : $(OBJ_L2C)
+	$(NVCC) -o $@ $(OBJ_L2C) $(FFTLIB)
+
 clean :
 	\rm $(PROGS) *.o a.out core *.trace
 
@@ -76,6 +80,9 @@ install:
 #	$(NVCC) -c $*.cu
 cuda_fft_xspec.o:	cuda_fft_xspec.cu	shm_VDIF.inc cuda_polaris.inc
 	$(NVCC) -c cuda_fft_xspec.cu
+
+cuda_L2C.o:	cuda_L2C.cu	cuda_polaris.inc
+	$(NVCC) -c cuda_L2C.cu
 #bitPower.o:			bitPower.cu
 #	$(NVCC) -c bitPower.cu
 

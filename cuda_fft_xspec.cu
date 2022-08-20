@@ -16,7 +16,7 @@
 int	segment_offset(struct SHM_PARAM	*, int *);
 int	fileRecOpen(struct SHM_PARAM	*, char *, FILE **, FILE **, FILE **);
 
-main(
+int main(
 	int		argc,			// Number of Arguments
 	char	**argv )		// Pointer to Arguments
 {
@@ -113,9 +113,9 @@ main(
 		    }
 
 		    //-------- FFT Real -> Complex spectrum
-		    cudaThreadSynchronize();
+		    // cudaThreadSynchronize();
 		    cufftExecR2C(cufft_plan, cuRealData, &cuSpecData[threadID* NsegPage* NFFTC]);		// FFT Time -> Freq
-		    cudaThreadSynchronize();
+		    // cudaThreadSynchronize();
 
 		    //---- Auto Corr
 		    Dg.x= NFFT/512; Dg.y=1; Dg.z=1;
@@ -125,14 +125,14 @@ main(
 			}
 		}
 		//---- Cross Corr
-		for(seg_index=0; seg_index<NsegPage; seg_index++){
-		    accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
-		}
+		// for(seg_index=0; seg_index<NsegPage; seg_index++){
+		//     accumCrossSpec<<<Dg, Db>>>( &cuSpecData[seg_index* NFFTC], &cuSpecData[(seg_index + NsegPage)* NFFTC], cuXSpec,  NFFT2);
+		// }
 		// printf("%lf [msec]\n", GetTimer());
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&elapsed_time_ms, start, stop);
-		printf("%4d %03d %02d:%02d:%02d %8.2f [msec]\n", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec, elapsed_time_ms);
+		printf("%4d %03d %02d:%02d:%02d %02d %8.2f [msec]\n", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec, threadID, elapsed_time_ms);
 
 		//-------- Dump cross spectra to shared memory
 		// if( param_ptr->buf_index == PARTNUM - 1){

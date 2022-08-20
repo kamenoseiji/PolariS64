@@ -32,7 +32,7 @@ int main(
 //------------------------------------------ Get Path
 	FILE	*file_ptr;
 	char	path_dir[256];
-	char	path_str[256];
+	char	path_str[512];
 	if( (file_ptr = popen("which shm_param", "r")) == NULL){
 		perror("No active path to shm_param!!\n"); return(-1);
 	}

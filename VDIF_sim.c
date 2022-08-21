@@ -65,7 +65,7 @@ int main(
         memcpy( &vdifdata_ptr[addr_offset], &buf[VDIFHEAD_SIZE], VDIFDATA_SIZE);
 		usleep(1);
         if(frameID % FramePerPage == FramePerPage - 1){
-            param_ptr->part_index = page_index & 0x01;
+            param_ptr->page_index = page_index & 0x01;
             memcpy( vdifhead_ptr, buf, VDIFHEAD_SIZE);
             param_ptr->validity |= ENABLE;
 			sops.sem_num = (ushort)SEM_VDIF_PART; sops.sem_op = (short)1; sops.sem_flg = (short)0;

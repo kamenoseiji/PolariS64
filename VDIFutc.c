@@ -16,7 +16,6 @@ int	VDIFutc(
 
 	ref_sec    = ((vdifhead_ptr[0] & 0x3f) << 24) + (vdifhead_ptr[1] << 16) + (vdifhead_ptr[2] << 8) + vdifhead_ptr[3];
 	ref_epoch  = (vdifhead_ptr[4]      ) & 0x3f;
-
 	param_ptr->year = 2000 + ref_epoch/2;
 	param_ptr->doy  =  ref_sec / 86400 + (ref_epoch%2)* 182;
 	if(param_ptr->year % 4 == 0){	param_ptr->doy++;}

@@ -24,7 +24,7 @@ int main(
 	int		bandWidth=16;				// Bandwidth [MHz]: 2/4/8/16/32/64/128/256/512/1024
 	int		qbit=2;						// Quantization bits: 1/2/4/8
 	int		num_st=16;					// Number of streams
-	int		num_ch=32768;				// Number of spectral channels: 2^n (n=9..18)
+	int		num_ch=65536;				// Number of spectral channels: 2^n (n=9..18)
 	int		ARecFlag   = 0;				// Autocorr Recording Flag
 	int		CRecFlag   = 0;				// Autocorr Recording Flag
 	int		statusFlag = 0;				// Used for option parser
@@ -82,7 +82,7 @@ int main(
 	param_ptr->num_ch    = num_ch;		// Number of spectral channels
 	param_ptr->fsample   = pow2round(2* bandWidth)* 1000000;	    // Sampling freq.
 	param_ptr->segRate   = param_ptr->fsample / param_ptr->segLen;  // Number of segments in 1 sec
-	param_ptr->segPage   = param_ptr->segRate / PAGEPERSEC;         // Number of segments in a page (0.1 sec)
+	param_ptr->segPage   = param_ptr->segRate / 8;                  // Number of segments in a page (0.125 sec)
 	printf("AREC FLAG = %X \n", param_ptr->AC_REC);
 	printf("%d Megabit  per sec\n", param_ptr->num_st* (param_ptr->fsample/1000000) * param_ptr->qbit);
 	printf("%d Segments per sec\n", param_ptr->segRate);

@@ -34,25 +34,25 @@ union VDIF32byte{
 #define SHM_VDIFH_FILE	"vdifh.shm"	// File to record shared memory information
 #define SHM_VDIFD_FILE	"vdifd.shm"	// File to record shared memory information
 #define SHM_XSPEC_FILE	"xspec.shm"	// File to record shared memory information
-#define SHM_FMT         "SHM_KEY(HEX)    SHM_ID     SHMSIZE(bytes)\n         %X        %d                %d"
+#define SHM_FMT         "SHM_KEY(HEX)    SHM_ID     SHMSIZE(bytes)\n         %X        %d                %lu"
 //-------- Shared Memory Size
 // VDIF Buffer Memory Map
-//  |      <---- 0.2 sec ->|
-//  | st0 || page0 | page2 |
-//  |     || part0 | part1 |
-//  | st1 || page1 | page2 |
-//  |     || part0 | part1 |
-//
-//  10 parts / sec / stream
+//         |<--- 0.25sec ->|
+//         | page0 | page1 |
+//         +-------+-------|
+// thread0 | ST0P0 | ST0P1 |
+// thread1 | ST1P0 | ST1P1 |
+// thread2 | ST2P0 | ST2P1 |
+// thread3 | ST3P0 | ST3P1 |
+//  2 page / 0.25sec
 //
 #define SEM_NUM			16			// Number of Semaphores
-#define	VDIF_SIZE		1312		// 1312 bytes = Header (32 bytes) + Data (1280 bytes)
+#define	VDIF_SIZE		1312	    // 1312 bytes = Header (32 bytes) + Data (1280 bytes)
 #define	VDIFHEAD_SIZE	32			// VDIF Header size
-#define	VDIFDATA_SIZE	1280		// VDIF Header size
+#define	VDIFDATA_SIZE	1280	    // VDIF data array size
 //#define	MAX_SAMPLE_BUF	33554432	// 32 MB (1/4 sec for 1 Gbps)
 //#define	HALFBUF			16777216	// 16 MB per 1/8 sec
-#define PAGENUM			       2   // Number of pages
-#define PAGEPERSEC			  10   // Number of Pages in 1 sec per stream
+#define PAGENUM			       8   // Number of pages
 #define	NST			(param_ptr->num_st)		// Numver of streams
 #define	NFFT		(param_ptr->segLen)		// FFT points
 #define	NFFT2		(param_ptr->num_ch)		// Half of FFT points
@@ -72,7 +72,7 @@ struct	SHM_PARAM{
 	int		shrd_vdifdata_id;	// Shared Memory ID
 	int		shrd_xspec_id;		// Shared Memory ID
 	int		sem_data_id;		// Semaphore
-	int		part_index;			// Index for part (0 or 1) of sampled data
+	int		page_index;			// Index for page (0 or 1) of sampled data
 	int		dummy;			    // Dummy
 	int		dummy2;				// filler, reserved
 

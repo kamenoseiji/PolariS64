@@ -23,11 +23,9 @@ int main(
 {
 	int		shrd_param_id;				// Shared Memory ID
 	int		index;						// General Index
-	int		cycle_index;				// Index for cycle of buffer (4 cycles per sec)
-	int		page_index;					// Index for page in buffer (2 pages per cycle)
 	int		seg_index;					// Index for Segment
 	int		threadID;                   // Thread (=IF stream) ID
-    int     PageSize;
+    size_t  PageSize;
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
 	unsigned char	*vdifhead_ptr;		// Pointer to the VDIF header
@@ -39,7 +37,7 @@ int main(
 	unsigned int		bitStat[64];	// 16 IF x 4 level
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
 
-	int				modeSW = 0;
+	int				modeSW = -1;
 
 	//-------- Pointer to functions
  	int	(*bitCount[5])( int, unsigned char *, unsigned int *);
@@ -54,19 +52,25 @@ int main(
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	vdifhead_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifhead_id, NULL, SHM_RDONLY);
 	vdifdata_ptr = (unsigned char *)shmat(param_ptr->shrd_vdifdata_id, NULL, SHM_RDONLY);
-	switch( param_ptr->num_st ){
- 		case  1 :	modeSW = 0; break;
- 		case  2 :	modeSW = 1; break;
- 		case  4 :	modeSW = 2; break;
- 		case  8 :	modeSW = 3; break;
- 		case 16 :	modeSW = 4; break;
+    while(modeSW < 0){
+	    switch( param_ptr->num_st ){
+ 		    case  1 :	modeSW = 0; break;
+ 		    case  2 :	modeSW = 1; break;
+ 		    case  4 :	modeSW = 2; break;
+ 		    case  8 :	modeSW = 3; break;
+ 		    case 16 :	modeSW = 4; break;
+            default :   modeSW = -1; break;
+        }
+        usleep(10000);  // Wait 10 msec
  	}
+    sleep(1);  // Wait 1 sec
 //------------------------------------------ VSI Header and Data
-    PageSize = param_ptr->fsample  / 8 / PAGEPERSEC * param_ptr->qbit;
+    PageSize = (size_t)(param_ptr->fsample / 64) * param_ptr->qbit;
  	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
-		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
+		if( param_ptr->validity & (FINISH + ABSFIN) ){
+            break; }
 
 		//-------- Loop for half-sec period
 		memset(bitStat, 0, sizeof(bitStat));
@@ -75,11 +79,9 @@ int main(
 		sops.sem_num = (ushort)SEM_VDIF_POWER; sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 		usleep(8);	// Wait 0.01 msec
-		cycle_index = param_ptr->part_index / 2;	// 4 cycles per 1 sec
-		page_index  = param_ptr->part_index % 2;	// 2 pages per cycle
 		//-------- BitDist
         for(threadID=0; threadID < NST; threadID++){
-            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (threadID*2 + param_ptr->part_index)], &bitStat[4* threadID]);
+            bitDist1st2bit(1048576, &vdifdata_ptr[PageSize* (NST*param_ptr->page_index + threadID)], &bitStat[4* threadID]);
             gaussBit(4, &bitStat[4* threadID], param, param_err );
             param_ptr->power[threadID] = 1.0 / (param[0]* param[0]);
         }

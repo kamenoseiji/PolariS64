@@ -34,9 +34,11 @@ int main(
 		printf("PowerView: Succeeded to access the shared parameter [%d]!\n",  param_ptr->shrd_param_id);
 	}
 	memset(bitPower, 0, param_ptr->num_st* POWER_TIME_NUM* sizeof(float));
+    sleep(1);
 //------------------------------------------ K5 Header and Data
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
-	cpgbeg(1, argv[1], 1, 1);
+	cpgbeg(0, argv[1], 1, 1);
+    printf("shm_power_view: PGPLOT device is %s\n", argv[1]);
 
 	while(param_ptr->validity & ACTIVE){
 		cpgbbuf();

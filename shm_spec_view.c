@@ -41,6 +41,7 @@ int main(
 	sleep(1);									// Timing adjustment for PGPLOT device
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, argv[1], 1, 1);
+    printf("shm_spec_view: PGPLOT device is %s\n", argv[1]);
 	freq_ptr = (float *)malloc(MAX_CH_VIEW* sizeof(float));
 	spec_ptr = (float *)malloc(NST* MAX_CH_VIEW* sizeof(float)); 
 	freq_incr = (double)(param_ptr->fsample) * 5.0e-7 / MAX_CH_VIEW;

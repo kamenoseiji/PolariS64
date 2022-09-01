@@ -17,7 +17,7 @@ int main(
 	int		shrd_param_id;				// Shared Memory ID
 	struct	SHM_PARAM	*param_ptr;
 	char	cmd[8][16];					// Command line arguments
-	char	pgdev[16];					// PGPLOT Device
+	char	pgdev[12];					// PGPLOT Device
 	char	dumpFname[256];				// File name to dump
 	int		pid;						// Process ID
 	int		integPP=0;					// Maximum record number [sec]
@@ -128,7 +128,8 @@ int main(
 	}
 //------------------------------------------ Start Spectrum Viewer
 	if( param_ptr->validity & PGPLOT ){
-		strcpy(cmd[1], pgdev);
+		// strcpy(cmd[1], pgdev);
+		sprintf(cmd[1], "1%s", pgdev);
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], POWER_VIEW);
 			sprintf(path_str, "%s%s", path_dir, POWER_VIEW);
@@ -137,6 +138,7 @@ int main(
 				perror("Can't Create Chiled Proces!!\n"); return(-1);
 			}
 		}
+		sprintf(cmd[1], "2%s", pgdev);
 		if( fork() == 0){
 			pid = getpid(); sprintf(cmd[0], SPEC_VIEW);
 			sprintf(path_str, "%s%s", path_dir, SPEC_VIEW);
